@@ -1,13 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-cinematic-bg: #000000;
-  --color-cinematic-surface: #111111;
-  --color-cinematic-border: #2a2a2a;
+  --font-bebas: "Bebas Neue", sans-serif;
+  --color-cinematic-bg: #050505;
+  --color-cinematic-surface: #121212;
+  --color-cinematic-border: #E50914; /* Netflix Red */
   --color-cinematic-text: #ffffff;
-  --color-cinematic-muted: #cccccc;
+  --color-cinematic-muted: #8a8a8a;
+  --color-st-red: #db0000;
+  --color-st-dark-red: #830000;
 }
 
 body {
@@ -15,19 +19,51 @@ body {
   color: var(--color-cinematic-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  background-image: radial-gradient(circle at 50% 0%, rgba(219,0,0,0.05) 0%, transparent 70%);
+}
+
+.text-glow {
+  text-shadow: 0 0 15px rgba(219,0,0,0.8), 0 0 30px rgba(219,0,0,0.4);
+}
+.box-glow {
+  box-shadow: 0 0 25px rgba(219,0,0,0.25);
+}
+.box-glow-intense {
+  box-shadow: 0 0 40px rgba(219,0,0,0.5), inset 0 0 20px rgba(219,0,0,0.2);
 }
 
 /* Custom scrollbar for cinematic feel */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-cinematic-bg);
+  background: rgba(0,0,0,0.3);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-cinematic-border);
+  background: var(--color-st-red);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  background: #ff2222;
+  box-shadow: 0 0 10px #db0000;
+}
+
+/* Upside Down effects */
+@keyframes float-up {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  20% { opacity: 0.6; }
+  80% { opacity: 0.4; }
+  100% { transform: translateY(-100vh) translateX(30px); opacity: 0; }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 0.3; }
+  20% { opacity: 0.7; }
+  40% { opacity: 0.2; }
+  60% { opacity: 0.8; }
+  80% { opacity: 0.4; }
+}
+
+.upside-down-glow {
+  box-shadow: 0 0 60px rgba(120,0,0,0.2), 0 0 120px rgba(80,0,0,0.1), inset 0 1px 0 rgba(220,38,38,0.1);
 }

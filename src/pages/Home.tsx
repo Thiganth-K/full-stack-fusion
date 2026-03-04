@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { Hand, HandMetal } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Hand, HandMetal, Play } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Home() {
   const { user } = useAuth();
   const { socket } = useSocket();
   const [raisedHand, setRaisedHand] = useState(user?.raisedHand || false);
   const [polls, setPolls] = useState<any[]>([]);
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     // Fetch initial polls
@@ -45,6 +46,10 @@ export default function Home() {
       socket.on('poll-updated', (updatedPoll) => {
         setPolls(prev => prev.map(p => p._id === updatedPoll._id ? updatedPoll : p));
       });
+
+      socket.on('poll-deleted', (pollId) => {
+        setPolls(prev => prev.filter(p => p._id !== pollId));
+      });
     }
 
     return () => {
@@ -53,6 +58,7 @@ export default function Home() {
         socket.off('all-hands-cleared');
         socket.off('new-poll');
         socket.off('poll-updated');
+        socket.off('poll-deleted');
       }
     };
   }, [socket, user]);
@@ -72,102 +78,166 @@ export default function Home() {
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <header className="mb-12">
-        <h1 className="text-3xl font-semibold tracking-tight mb-2">Welcome, {user?.name}.</h1>
-        <p className="text-cinematic-muted">Ready to participate? Keep it cool.</p>
-      </header>
+    <div className="relative w-full min-h-screen bg-cinematic-bg text-white overflow-x-hidden pb-12">
+      {/* Background Hero Layer */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center transition-all duration-700"
+        style={{ backgroundImage: `url('/hero.png')` }}
+      >
+        <div className="absolute inset-0 bg-linear-to-r from-black/95 via-black/80 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-cinematic-bg via-cinematic-bg/20 to-transparent" />
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-1">
-          <motion.div 
-            className="bg-cinematic-surface border border-cinematic-border rounded-2xl p-6 flex flex-col items-center justify-center text-center"
-            whileHover={{ scale: 1.02 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          >
-            <div className="mb-4">
-              {raisedHand ? (
-                <Hand className="w-16 h-16 text-white" />
-              ) : (
-                <HandMetal className="w-16 h-16 text-cinematic-muted" />
-              )}
-            </div>
-            <h3 className="text-lg font-medium mb-2">Need attention?</h3>
-            <p className="text-sm text-cinematic-muted mb-6">
-              Raise your hand to let the admin know you have a question.
-            </p>
-            <button
+      <div className="relative z-10 w-full h-full pt-32 px-4 md:px-8 lg:px-16 flex flex-col lg:flex-row items-start gap-12">
+        {/* Left Side Content */}
+        <motion.div 
+          className="flex-1 max-w-160 mt-16 flex flex-col justify-center"
+          initial={{ opacity: 0, x: -50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8 }}
+        >
+          <div className="flex items-center gap-3 text-st-red font-bold mb-6 tracking-[0.3em] text-xs uppercase max-md:hidden">
+            <span className="text-st-red animate-pulse border border-st-red p-0.5 rounded-full"><span className="block w-1.5 h-1.5 bg-st-red rounded-full box-glow text-glow"></span></span> LIVE FROM THE UPSIDE DOWN
+          </div>
+          
+          <h1 className="text-6xl lg:text-8xl font-bebas mb-6 leading-[0.9] tracking-[0.05em] text-white select-none">
+            Welcome to Hawkins,<br /><span className="text-st-red text-glow">{user?.name || 'Stranger'}</span>
+          </h1>
+          
+          <p className="text-[#a3a3a3] text-xl mb-12 leading-relaxed max-w-xl font-light font-sans tracking-wide">
+            In the upside down, communication is everything. Need the DM's attention during the campaign? Send a distress signal before the demogorgon finds you.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-6 mb-10">
+            <button 
               onClick={toggleHand}
-              className={`w-full py-3 rounded-lg font-medium transition-all duration-200 ${
+              className={`flex items-center gap-3 px-10 py-5 rounded-sm text-lg font-bebas tracking-[0.2em] transition-all duration-500 uppercase ${
                 raisedHand 
-                  ? 'bg-white text-black hover:bg-gray-200' 
-                  : 'bg-transparent border border-white text-white hover:bg-white/10'
+                  ? 'bg-white text-black box-glow hover:bg-gray-200' 
+                  : 'bg-transparent border border-st-red hover:bg-[#1a0000] text-st-red hover:text-white box-glow'
               }`}
             >
-              {raisedHand ? 'Lower Hand' : 'Raise Hand'}
+              {raisedHand ? (
+                <>
+                  <Hand className="w-5 h-5 mb-0.5" /> Lower Hand
+                </>
+              ) : (
+                <>
+                  <HandMetal className="w-5 h-5 mb-0.5" strokeWidth={1.5} /> Raise Hand
+                </>
+              )}
             </button>
-          </motion.div>
-        </div>
-
-        <div className="md:col-span-2 space-y-6">
-          <h2 className="text-xl font-medium tracking-tight border-b border-cinematic-border pb-4">Active Polls</h2>
-          
-          {polls.length === 0 ? (
-            <div className="text-cinematic-muted text-sm py-8 text-center border border-dashed border-cinematic-border rounded-xl">
-              No active polls at the moment.
+            <div className="hidden md:flex items-center gap-4 overflow-hidden">
+              <div className="relative w-40 h-[68px] rounded-sm border border-white/10 bg-cinematic-bg overflow-hidden cursor-pointer group hover:border-st-red/50 transition-all duration-500">
+                <img src="/steve.png" alt="Steve" className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-700 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-linear-to-t from-black/90 to-transparent flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <span className="text-[10px] font-bebas tracking-widest text-[#a3a3a3] group-hover:text-st-red transition-colors text-glow">COMM LINK</span>
+                </div>
+              </div>
             </div>
-          ) : (
-            polls.map(poll => {
-              const myResponse = poll.responses.find((r: any) => r.userId === user?._id || r.userId === user?.id);
-              const totalResponses = poll.responses.length;
+          </div>
+          
+          <div className="mt-8 flex items-center gap-4 text-[#a3a3a3] opacity-60 hover:opacity-100 transition-opacity cursor-default">
+            <div className="w-10 h-10 border border-white/20 rounded-md flex items-center justify-center text-xs font-bold bg-white/5 font-sans">
+              16+
+            </div>
+            <span className="text-xs font-medium tracking-[0.2em] uppercase">Admin broadcast active</span>
+          </div>
+        </motion.div>
 
-              return (
-                <motion.div 
-                  key={poll._id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-cinematic-surface border border-cinematic-border rounded-2xl p-6"
-                >
-                  <h3 className="text-lg font-medium mb-4">{poll.question}</h3>
-                  <div className="space-y-3">
-                    {poll.options.map((option: string, index: number) => {
-                      const responseCount = poll.responses.filter((r: any) => r.selectedOption === index).length;
-                      const percentage = totalResponses === 0 ? 0 : Math.round((responseCount / totalResponses) * 100);
-                      const isSelected = myResponse?.selectedOption === index;
+        {/* Right Side Content - Polls */}
+        <motion.div 
+          className="flex-1 w-full lg:mb-0 mb-12 mt-12 flex flex-col justify-center"
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+        >
+          <div className="md:ml-auto max-w-136 w-full">
+            <h2 className="text-4xl lg:text-5xl font-bebas mb-12 tracking-widest text-white flex justify-between items-end border-b border-white/10 pb-6 uppercase">
+              Active Polls
+            </h2>
 
-                      return (
-                        <button
-                          key={index}
-                          onClick={() => submitPollResponse(poll._id, index)}
-                          className={`w-full relative overflow-hidden rounded-lg border p-4 text-left transition-all duration-200 ${
-                            isSelected 
-                              ? 'border-white bg-white/5' 
-                              : 'border-cinematic-border hover:border-white/30 hover:bg-white/5'
-                          }`}
-                        >
-                          <div 
-                            className="absolute left-0 top-0 bottom-0 bg-white/10 transition-all duration-500"
-                            style={{ width: `${percentage}%` }}
-                          />
-                          <div className="relative flex justify-between items-center z-10">
-                            <span className="font-medium">{option}</span>
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm text-cinematic-muted">{responseCount} votes</span>
-                              <span className="text-sm font-medium w-8 text-right">{percentage}%</span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-4 text-xs text-cinematic-muted text-right">
-                    {totalResponses} response{totalResponses !== 1 ? 's' : ''}
-                  </div>
-                </motion.div>
-              );
-            })
-          )}
-        </div>
+            <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-4 custom-scrollbar">
+              {polls.length === 0 ? (
+                <div className="text-[#a3a3a3] text-sm tracking-widest uppercase py-16 text-center border border-dashed border-white/10 bg-black/40 backdrop-blur-sm relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(219,0,0,0.03)_100%)]" />
+                  No mysterious votes at the moment.
+                </div>
+              ) : (
+                <AnimatePresence>
+                  {polls.map((poll) => {
+                    const myResponse = poll.responses.find((r: any) => r.userId === user?._id || r.userId === user?.id);
+                    const totalResponses = poll.responses.length;
+
+                    return (
+                      <motion.div 
+                        key={poll._id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="bg-cinematic-bg/90 backdrop-blur-xl border border-white/5 p-8 relative overflow-hidden group hover:border-st-red/30 transition-all duration-500 shadow-2xl"
+                      >
+                        {/* Red glow effect for active polls */}
+                        <div className="absolute -top-16 -right-16 w-48 h-48 bg-st-red/5 rounded-full blur-3xl pointer-events-none group-hover:bg-st-red/10 transition-colors duration-1000" />
+
+                        <h3 className="text-2xl font-bebas tracking-wide mb-8 text-white group-hover:text-glow transition-all duration-300">{poll.question}</h3>
+                        
+                        <div className="space-y-4">
+                          {poll.options.map((option: string, index: number) => {
+                            const responseCount = poll.responses.filter((r: any) => r.selectedOption === index).length;
+                            const percentage = totalResponses === 0 ? 0 : Math.round((responseCount / totalResponses) * 100);
+                            const isSelected = myResponse?.selectedOption === index;
+
+                            return (
+                              <button
+                                key={index}
+                                onClick={() => !isAdmin && submitPollResponse(poll._id, index)}
+                                disabled={isAdmin}
+                                className={`w-full relative overflow-hidden border p-5 text-left transition-all duration-300 ${
+                                  isAdmin
+                                    ? 'border-white/5 bg-white/2 cursor-not-allowed opacity-70'
+                                    : isSelected 
+                                      ? 'border-st-red bg-[#1a0000] box-glow-intense' 
+                                      : 'border-white/5 hover:border-white/20 bg-white/2 hover:bg-white/4'
+                                }`}
+                              >
+                                <div 
+                                  className={`absolute left-0 top-0 bottom-0 transition-all duration-1000 ease-out ${
+                                    isSelected ? 'bg-st-red/20' : 'bg-white/5 group-hover:bg-white/10'
+                                  }`}
+                                  style={{ width: `${percentage}%` }}
+                                />
+                                <div className="relative flex justify-between items-center z-10 w-full">
+                                  <span className={`font-sans font-medium tracking-wide text-sm ${isSelected ? 'text-white text-glow' : 'text-[#a3a3a3]'}`}>
+                                    {option}
+                                  </span>
+                                  <div className="flex items-center gap-6 shrink-0 font-bebas tracking-widest text-lg">
+                                    <span className="text-[#a3a3a3] text-sm hidden sm:inline-block">{responseCount} VOTES</span>
+                                    <span className={`w-10 text-right ${isSelected ? 'text-st-red text-glow' : 'text-[#a3a3a3]'}`}>{percentage}%</span>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-8 text-[10px] uppercase tracking-[0.2em] text-[#a3a3a3] text-right font-medium flex items-center justify-between">
+                          {isAdmin && (
+                            <span className="text-st-red/60 italic normal-case tracking-normal">Admins cannot vote on polls</span>
+                          )}
+                          <span className="ml-auto">{totalResponses} response{totalResponses !== 1 ? 's' : ''} recorded in the upside down</span>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+      
+      <div className="absolute top-24 right-8 font-bold text-white/20 text-xl tracking-widest hidden lg:block z-0 pointer-events-none transform rotate-90 origin-right">
+        STRANGER THINGS
       </div>
     </div>
   );

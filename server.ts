@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { User, Poll, Message } from './server/models.js';
+import { User, Poll, Message, Snippet, ChatTopic } from './server/models.js';
 
 dotenv.config();
 
@@ -33,6 +33,13 @@ async function startServer() {
     try {
       await mongoose.connect(process.env.MONGODB_URI);
       console.log('Connected to MongoDB');
+
+      // Seed default "General" chat topic if none exist
+      const topicCount = await ChatTopic.countDocuments();
+      if (topicCount === 0) {
+        await ChatTopic.create({ name: 'General' });
+        console.log('Seeded default "General" chat topic');
+      }
     } catch (err) {
       console.error('MongoDB connection error:', err);
     }
@@ -145,10 +152,32 @@ async function startServer() {
     }
   });
 
-  app.get('/api/messages', authenticateToken, async (req, res) => {
+  app.get('/api/topics', authenticateToken, async (req, res) => {
     try {
-      const messages = await Message.find().populate('sender', 'name role').sort({ createdAt: -1 }).limit(50);
+      const topics = await ChatTopic.find().sort({ createdAt: 1 });
+      res.json(topics);
+    } catch (err) {
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  app.get('/api/messages', authenticateToken, async (req: any, res: any) => {
+    try {
+      const filter: any = {};
+      if (req.query.topicId) {
+        filter.topic = req.query.topicId;
+      }
+      const messages = await Message.find(filter).populate('sender', 'name role').sort({ createdAt: -1 }).limit(50);
       res.json(messages.reverse());
+    } catch (err) {
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  app.get('/api/snippets', authenticateToken, async (req, res) => {
+    try {
+      const snippets = await Snippet.find().populate('author', 'name role').sort({ createdAt: -1 });
+      res.json(snippets);
     } catch (err) {
       res.status(500).json({ error: 'Server error' });
     }
@@ -172,11 +201,14 @@ async function startServer() {
     
     socket.broadcast.emit('user-joined', { userId: socket.data.user.userId });
 
-    socket.on('send-message', async (content) => {
+    socket.on('send-message', async (data) => {
       try {
+        const content = typeof data === 'string' ? data : data.content;
+        const topicId = typeof data === 'string' ? null : data.topicId;
         const message = new Message({
           sender: socket.data.user.userId,
-          content
+          content,
+          topic: topicId || null
         });
         await message.save();
         const populatedMessage = await message.populate('sender', 'name role');
@@ -186,10 +218,40 @@ async function startServer() {
       }
     });
 
+    socket.on('create-topic', async (topicName: string) => {
+      try {
+        const user = await User.findById(socket.data.user.userId);
+        if (user?.role === 'admin') {
+          const existing = await ChatTopic.findOne({ name: topicName.trim() });
+          if (existing) return;
+          const topic = await ChatTopic.create({ name: topicName.trim() });
+          io.emit('new-topic', topic);
+        }
+      } catch (err) {
+        console.error('Error creating topic:', err);
+      }
+    });
+
+    socket.on('delete-topic', async (topicId: string) => {
+      try {
+        const user = await User.findById(socket.data.user.userId);
+        if (user?.role === 'admin') {
+          const topic = await ChatTopic.findById(topicId);
+          if (topic && topic.name === 'General') return; // Can't delete General
+          await ChatTopic.findByIdAndDelete(topicId);
+          await Message.deleteMany({ topic: topicId });
+          io.emit('topic-deleted', topicId);
+        }
+      } catch (err) {
+        console.error('Error deleting topic:', err);
+      }
+    });
+
     socket.on('raise-hand', async (raised: boolean) => {
       try {
-        await User.findByIdAndUpdate(socket.data.user.userId, { raisedHand: raised });
-        io.emit('hand-status-changed', { userId: socket.data.user.userId, raised });
+        const updateData = { raisedHand: raised, handRaisedAt: raised ? new Date() : null };
+        await User.findByIdAndUpdate(socket.data.user.userId, updateData);
+        io.emit('hand-status-changed', { userId: socket.data.user.userId, raised, handRaisedAt: updateData.handRaisedAt });
       } catch (err) {
         console.error('Error updating hand status:', err);
       }
@@ -204,6 +266,19 @@ async function startServer() {
         }
       } catch (err) {
         console.error('Error clearing hands:', err);
+      }
+    });
+
+    socket.on('admin-toggle-hand', async ({ userId, raised }) => {
+      try {
+        const adminUser = await User.findById(socket.data.user.userId);
+        if (adminUser?.role === 'admin') {
+          const updateData = { raisedHand: raised, handRaisedAt: raised ? new Date() : null };
+          await User.findByIdAndUpdate(userId, updateData);
+          io.emit('hand-status-changed', { userId, raised, handRaisedAt: updateData.handRaisedAt });
+        }
+      } catch (err) {
+        console.error('Error toggling hand by admin:', err);
       }
     });
 
@@ -224,8 +299,24 @@ async function startServer() {
       }
     });
 
+    socket.on('delete-poll', async (pollId) => {
+      try {
+        const user = await User.findById(socket.data.user.userId);
+        if (user?.role === 'admin') {
+          await Poll.findByIdAndDelete(pollId);
+          io.emit('poll-deleted', pollId);
+        }
+      } catch (err) {
+        console.error('Error deleting poll:', err);
+      }
+    });
+
     socket.on('submit-poll-response', async ({ pollId, optionIndex }) => {
       try {
+        // Only participants can vote, not admins
+        const voter = await User.findById(socket.data.user.userId);
+        if (voter?.role === 'admin') return;
+
         const poll = await Poll.findById(pollId);
         if (poll) {
           // Check if user already responded
@@ -240,6 +331,53 @@ async function startServer() {
         }
       } catch (err) {
         console.error('Error submitting poll response:', err);
+      }
+    });
+
+    socket.on('create-snippet', async (snippetData) => {
+      try {
+        const user = await User.findById(socket.data.user.userId);
+        if (user?.role === 'admin') {
+          const snippet = new Snippet({
+            title: snippetData.title,
+            language: snippetData.language || 'text',
+            code: snippetData.code || '',
+            type: snippetData.type || 'file',
+            parentId: snippetData.parentId || null,
+            author: user._id
+          });
+          await snippet.save();
+          const populatedSnippet = await snippet.populate('author', 'name role');
+          io.emit('new-snippet', populatedSnippet);
+        }
+      } catch (err) {
+        console.error('Error creating snippet:', err);
+      }
+    });
+
+    socket.on('update-snippet', async ({ id, code }) => {
+      try {
+        const user = await User.findById(socket.data.user.userId);
+        if (user?.role === 'admin') {
+          const snippet = await Snippet.findByIdAndUpdate(id, { code }, { new: true }).populate('author', 'name role');
+          if (snippet) {
+            io.emit('snippet-updated', snippet);
+          }
+        }
+      } catch (err) {
+        console.error('Error updating snippet:', err);
+      }
+    });
+
+    socket.on('delete-snippet', async (id) => {
+      try {
+        const user = await User.findById(socket.data.user.userId);
+        if (user?.role === 'admin') {
+          await Snippet.findByIdAndDelete(id);
+          io.emit('snippet-deleted', id);
+        }
+      } catch (err) {
+        console.error('Error deleting snippet:', err);
       }
     });
 

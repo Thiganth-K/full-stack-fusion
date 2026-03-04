@@ -13,6 +13,7 @@ import DashboardLayout from './pages/DashboardLayout';
 import Home from './pages/Home';
 import Chat from './pages/Chat';
 import Admin from './pages/Admin';
+import CodeShare from './pages/CodeShare';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/" element={<DashboardLayout />}>
               <Route index element={<Home />} />
               <Route path="chat" element={<Chat />} />
+              <Route path="code" element={<CodeShare />} />
               <Route path="admin" element={<Admin />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -19,9 +19,9 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-cinematic-bg text-white overflow-hidden">
+    <div className="flex flex-col h-screen bg-cinematic-bg text-white overflow-hidden font-sans">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto relative bg-cinematic-bg">
         <Outlet />
       </main>
     </div>
