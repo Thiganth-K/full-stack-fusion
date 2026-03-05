@@ -10,7 +10,7 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
-async function killAllRecords() {
+async function killAllData() {
   try {
     console.log('Connecting to MongoDB...');
     await mongoose.connect(MONGODB_URI);
@@ -26,7 +26,7 @@ async function killAllRecords() {
         const result = await db.collection(col.name).deleteMany({});
         console.log(`[${col.name}] Deleted ${result.deletedCount} record(s)`);
       }
-      console.log('\nAll records deleted.');
+      console.log('\nAll data killed.');
     }
   } catch (err) {
     console.error('Error:', err.message);
@@ -36,4 +36,4 @@ async function killAllRecords() {
   }
 }
 
-killAllRecords();
+killAllData();
