@@ -121,7 +121,12 @@ export default function CodeShare() {
   // Helper to build tree
   const buildTree = (items: any[], parentId: string | null = null) => {
     return items
-      .filter(item => item.parentId === parentId)
+      .filter(item => {
+        if (parentId === null) {
+          return !item.parentId || !items.some(parent => parent._id === item.parentId);
+        }
+        return item.parentId === parentId;
+      })
       .map(item => ({
         ...item,
         children: buildTree(items, item._id)
