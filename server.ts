@@ -378,8 +378,16 @@ async function startServer() {
       try {
         const user = await User.findById(socket.data.user.userId);
         if (user?.role === 'admin') {
-          await Snippet.findByIdAndDelete(id);
-          io.emit('snippet-deleted', id);
+          const deleteSnippetAndChildren = async (snippetId: string) => {
+            const children = await Snippet.find({ parentId: snippetId });
+            for (const child of children) {
+              await deleteSnippetAndChildren(child._id.toString());
+            }
+            await Snippet.findByIdAndDelete(snippetId);
+            io.emit('snippet-deleted', snippetId);
+          };
+
+          await deleteSnippetAndChildren(id);
         }
       } catch (err) {
         console.error('Error deleting snippet:', err);
