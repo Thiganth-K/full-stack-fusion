@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: full-stack-fusion
+    env: node
+    region: singapore # Change to your preferred region (oregon, frankfurt, singapore, ohio)
+    plan: free        # Change to starter/standard for production
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false   # Set this manually in Render dashboard
+      - key: JWT_SECRET
+        generateValue: true  # Render auto-generates a secure random value

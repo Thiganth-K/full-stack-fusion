@@ -58,7 +58,7 @@ export default function CodeShare() {
       });
 
       socket.on('snippet-deleted', (id) => {
-        setSnippets(prev => prev.filter(s => s._id !== id && s.parentId !== id));
+        setSnippets(prev => prev.filter(s => s._id?.toString() !== id && s.parentId?.toString() !== id));
         if (activeSnippetId === id) {
           setActiveSnippetId(null);
         }
@@ -129,7 +129,7 @@ export default function CodeShare() {
       })
       .map(item => ({
         ...item,
-        children: buildTree(items, item._id)
+        children: buildTree(items, item._id ? item._id.toString() : item._id)
       }));
   };
 
@@ -405,19 +405,19 @@ export default function CodeShare() {
                   <FolderOpen className="w-5 h-5 text-st-red" />
                   <h3 className="text-lg font-bold tracking-wider text-white uppercase">{activeSnippet.title}</h3>
                   <span className="text-xs text-cinematic-muted ml-1">
-                    — {snippets.filter(s => s.parentId === activeSnippet._id).length} items
+                    — {snippets.filter(s => s.parentId?.toString() === activeSnippet._id?.toString()).length} items
                   </span>
                 </div>
-                {snippets.filter(s => s.parentId === activeSnippet._id).length === 0 ? (
+                {snippets.filter(s => s.parentId?.toString() === activeSnippet._id?.toString()).length === 0 ? (
                   <div className="flex flex-col items-center justify-center text-cinematic-muted py-16 text-center">
                     <FolderOpen className="w-12 h-12 opacity-15 mb-3" />
                     <p className="text-sm">This folder is empty.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {snippets.filter(s => s.parentId === activeSnippet._id).map(item => {
+                    {snippets.filter(s => s.parentId?.toString() === activeSnippet._id?.toString()).map(item => {
                       const lineCount = item.type === 'file' && item.code ? item.code.split('\n').length : 0;
-                      const childCount = item.type === 'folder' ? snippets.filter(s => s.parentId === item._id).length : 0;
+                      const childCount = item.type === 'folder' ? snippets.filter(s => s.parentId?.toString() === item._id?.toString()).length : 0;
                       return (
                         <button
                           key={item._id}

@@ -7,7 +7,12 @@ import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { User, Poll, Message, Snippet, ChatTopic } from './server/models.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -23,7 +28,7 @@ async function startServer() {
     }
   });
 
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(cors());
   app.use(express.json());
@@ -402,7 +407,11 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static('dist'));
+    app.use(express.static(path.join(__dirname, 'dist')));
+    // SPA catch-all: serve index.html for any non-API route so React Router works
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    });
   }
 
   httpServer.listen(PORT, '0.0.0.0', () => {
